@@ -1,7 +1,16 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Button, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+} from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Login() {
   const { login } = useAuth();
@@ -9,6 +18,7 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleLogin = async () => {
@@ -28,36 +38,112 @@ export default function Login() {
   };
 
   return (
-    <View style={{ padding: 20, marginTop: 100 }}>
-      <Text style={{ fontSize: 24, marginBottom: 20 }}>Connexion</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Connexion</Text>
 
-      {errorMsg ? (
-        <Text style={{ color: 'red', marginBottom: 10 }}>{errorMsg}</Text>
-      ) : null}
+          {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
 
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={{ borderWidth: 1, marginBottom: 12, padding: 8 }}
-      />
-      <TextInput
-        placeholder="Mot de passe"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={{ borderWidth: 1, marginBottom: 20, padding: 8 }}
-      />
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="exemple@mail.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
 
-      <Button title="Se connecter" onPress={handleLogin} />
+          <Text style={styles.label}>Mot de passe</Text>
+          <View style={styles.passwordWrapper}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              placeholder="•••••••"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eye}>
+              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#888" />
+            </TouchableOpacity>
+          </View>
 
-      <TouchableOpacity onPress={() => router.push('/register')} style={{ marginTop: 20 }}>
-        <Text style={{ color: 'blue', textAlign: 'center' }}>
-          Pas encore de compte ? S’inscrire
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>Se connecter</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.registerLink} onPress={() => router.push('/register')}>
+            <Text style={styles.registerLinkText}>Pas encore de compte ? S’inscrire</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    paddingBottom: 30,
+  },
+  container: {
+    paddingHorizontal: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginVertical: 24,
+  },
+  label: {
+    marginBottom: 6,
+    marginTop: 12,
+    color: '#000',
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 12,
+    borderRadius: 10,
+    color: '#000',
+  },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eye: {
+    position: 'absolute',
+    right: 12,
+  },
+  loginButton: {
+    backgroundColor: '#333',
+    padding: 16,
+    borderRadius: 10,
+    marginTop: 24,
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  registerLink: {
+    marginTop: 16,
+    padding: 14,
+    backgroundColor: '#f2f2f2',
+    borderRadius: 10,
+  },
+  registerLinkText: {
+    textAlign: 'center',
+    color: '#333',
+  },
+  error: {
+    color: 'red',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+});

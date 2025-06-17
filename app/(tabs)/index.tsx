@@ -60,14 +60,12 @@ export default function HomeScreen() {
     <ScrollView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Barre de recherche */}
       <TextInput
         placeholder="Rechercher"
         placeholderTextColor="#999"
         style={styles.search}
       />
 
-      {/* Bannière promo */}
       <Image
         source={{
           uri: "https://www.shein.com/images/banner/hp-active-banner-fr.webp",
@@ -76,7 +74,6 @@ export default function HomeScreen() {
         resizeMode="cover"
       />
 
-      {/* Section Boutiques */}
       <Text style={styles.sectionTitle}>Boutiques</Text>
       <View style={styles.grid}>
         {shops.map((shop, index) => (
@@ -87,7 +84,6 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Section Catégories */}
       <Text style={styles.sectionTitle}>Catégories de boutiques</Text>
       <View style={styles.categoryRow}>
         {categories.map((cat, i) => (

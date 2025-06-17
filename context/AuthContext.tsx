@@ -4,13 +4,26 @@ import { useRouter } from 'expo-router';
 
 type Role = 'user' | 'admin';
 
+interface ExtendedProfileData {
+  first_name: string;
+  last_name: string;
+  country: string;
+  phone_number: string;
+  birth_date: string | null;
+}
+
 interface AuthContextProps {
   session: any;
   user: any;
   role: Role | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, role: Role) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    role: Role,
+    profileData: ExtendedProfileData
+  ) => Promise<void>;
   logout: () => void;
 }
 
@@ -24,7 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   const fetchUser = async () => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const { data: sessionData } = await supabase.auth.getSession();
 
     if (sessionData?.session) {
       const user = sessionData.session.user;
@@ -59,13 +72,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     router.replace('/');
   };
 
-  const register = async (email: string, password: string, role: Role) => {
+  const register = async (
+    email: string,
+    password: string,
+    role: Role,
+    profileData: ExtendedProfileData
+  ) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
 
     const userId = data.user?.id;
     if (userId) {
-      await supabase.from('user_profiles').insert([{ id: userId, role }]);
+      const { first_name, last_name, country, phone_number, birth_date } = profileData;
+      await supabase.from('user_profiles').insert([
+        {
+          id: userId,
+          role,
+          first_name,
+          last_name,
+          country,
+          phone_number,
+          birth_date,
+        },
+      ]);
     }
 
     await fetchUser();
