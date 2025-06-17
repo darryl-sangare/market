@@ -1,50 +1,48 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  SafeAreaView,
+  StyleSheet,
+  Animated,
+} from 'react-native';
+import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { useCart } from '../context/CartContext';
-import ProductModal from '../components/ProductModal';
+import { useCart } from '../../context/CartContext';
+import ProductModal from '../../components/ProductModal';
 
-export default function Webview() {
-  const { url } = useLocalSearchParams<{ url: string }>();
+export default function HmWebview({ url }: { url: string }) {
   const { addToCart, cartItems } = useCart();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  if (!url) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <Text>URL invalide</Text>
-      </SafeAreaView>
-    );
-  }
-
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const siteName = new URL(url).hostname.replace('www.', '');
 
-  const injectedAmazonScript = `
+  const injectedHmScript = `
     (function() {
       try {
-        const title = document.getElementById('productTitle')?.innerText?.trim() || '';
+        const title = document.title || '';
 
-        // ✅ Récupération du prix via ".a-price" (le plus courant sur Amazon)
         let price = '';
-        const priceBlock = document.querySelector('.a-price');
-        if (priceBlock) {
-          const whole = priceBlock.querySelector('.a-price-whole')?.innerText?.replace(/[^0-9]/g, '') || '';
-          const fraction = priceBlock.querySelector('.a-price-fraction')?.innerText?.replace(/[^0-9]/g, '') || '00';
-          if (whole) {
-            price = \`\${whole},\${fraction}\`;
+        const allSpans = document.querySelectorAll('span');
+        for (const el of allSpans) {
+          const txt = el.textContent?.trim();
+          if (txt && txt.match(/[0-9]+[.,][0-9]{2}/)) {
+            price = txt.match(/[0-9]+[.,][0-9]{2}/)[0];
+            break;
           }
         }
 
-        const image =
-          document.getElementById('landingImage')?.src ||
-          document.querySelector('#imgTagWrapperId img')?.src ||
-          document.querySelector('img')?.src || '';
+        const image = document.querySelector('img[src*="image.hm.com"]')?.src ||
+                      document.querySelector('meta[property="og:image"]')?.content ||
+                      document.querySelector('img')?.src || '';
 
         const button = document.createElement('button');
-        button.innerText = "Ajouter sur AfrikZone";
+        button.innerText = "Ajouter au panier";
         button.style.position = "fixed";
         button.style.bottom = "20px";
         button.style.left = "50%";
@@ -66,7 +64,7 @@ export default function Webview() {
         };
         document.body.appendChild(button);
       } catch (e) {
-        console.log('❌ Erreur Amazon JS:', e);
+        console.log('❌ Erreur JS H&M:', e);
       }
     })();
     true;
@@ -75,7 +73,6 @@ export default function Webview() {
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('🛒 Produit reçu :', data);
       setSelectedProduct({ ...data, site: siteName });
       setModalVisible(true);
     } catch (error) {
@@ -104,7 +101,7 @@ export default function Webview() {
 
       <WebView
         source={{ uri: url }}
-        injectedJavaScript={injectedAmazonScript}
+        injectedJavaScript={injectedHmScript}
         onMessage={handleMessage}
         javaScriptEnabled
         startInLoadingState
@@ -117,8 +114,29 @@ export default function Webview() {
         product={selectedProduct}
         onAdd={async (product: any) => {
           await addToCart(product);
+          setShowSuccess(true);
+
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }).start();
+
+          setTimeout(() => {
+            Animated.timing(fadeAnim, {
+              toValue: 0,
+              duration: 300,
+              useNativeDriver: true,
+            }).start(() => setShowSuccess(false));
+          }, 3000);
         }}
       />
+
+      {showSuccess && (
+        <Animated.View style={[styles.toast, { opacity: fadeAnim }]}>
+          <Text style={styles.toastText}>✅ Article ajouté au panier avec succès</Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -162,6 +180,25 @@ const styles = StyleSheet.create({
   badgeText: {
     color: 'white',
     fontSize: 12,
+    fontWeight: 'bold',
+  },
+
+  toast: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+    alignItems: 'center',
+  },
+  toastText: {
+    color: '#333',
     fontWeight: 'bold',
   },
 });

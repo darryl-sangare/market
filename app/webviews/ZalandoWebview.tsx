@@ -1,50 +1,48 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  SafeAreaView,
+  StyleSheet,
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { useCart } from '../context/CartContext';
-import ProductModal from '../components/ProductModal';
+import { router } from 'expo-router';
+import { useCart } from '../../context/CartContext';
+import ProductModal from '../../components/ProductModal';
 
-export default function Webview() {
-  const { url } = useLocalSearchParams<{ url: string }>();
+export default function ZalandoWebview({ url }: { url: string }) {
   const { addToCart, cartItems } = useCart();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-
-  if (!url) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <Text>URL invalide</Text>
-      </SafeAreaView>
-    );
-  }
+  const [canGoBack, setCanGoBack] = useState(false);
+  const webviewRef = useRef<any>(null);
 
   const siteName = new URL(url).hostname.replace('www.', '');
 
-  const injectedAmazonScript = `
+  const injectedZalandoScript = `
     (function() {
       try {
-        const title = document.getElementById('productTitle')?.innerText?.trim() || '';
+        const title = document.querySelector('h1[data-testid="product-title"]')?.innerText?.trim()
+                    || document.title;
 
-        // ✅ Récupération du prix via ".a-price" (le plus courant sur Amazon)
         let price = '';
-        const priceBlock = document.querySelector('.a-price');
-        if (priceBlock) {
-          const whole = priceBlock.querySelector('.a-price-whole')?.innerText?.replace(/[^0-9]/g, '') || '';
-          const fraction = priceBlock.querySelector('.a-price-fraction')?.innerText?.replace(/[^0-9]/g, '') || '00';
-          if (whole) {
-            price = \`\${whole},\${fraction}\`;
+        const allSpans = document.querySelectorAll('span, p');
+        for (const el of allSpans) {
+          const txt = el.textContent?.trim();
+          if (txt && txt.match(/[0-9]+[.,][0-9]{2}/)) {
+            price = txt.match(/[0-9]+[.,][0-9]{2}/)[0];
+            break;
           }
         }
 
         const image =
-          document.getElementById('landingImage')?.src ||
-          document.querySelector('#imgTagWrapperId img')?.src ||
+          document.querySelector('meta[property="og:image"]')?.content ||
           document.querySelector('img')?.src || '';
 
         const button = document.createElement('button');
-        button.innerText = "Ajouter sur AfrikZone";
+        button.innerText = "Ajouter au panier";
         button.style.position = "fixed";
         button.style.bottom = "20px";
         button.style.left = "50%";
@@ -66,7 +64,7 @@ export default function Webview() {
         };
         document.body.appendChild(button);
       } catch (e) {
-        console.log('❌ Erreur Amazon JS:', e);
+        console.log('❌ Erreur JS Zalando:', e);
       }
     })();
     true;
@@ -75,7 +73,6 @@ export default function Webview() {
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('🛒 Produit reçu :', data);
       setSelectedProduct({ ...data, site: siteName });
       setModalVisible(true);
     } catch (error) {
@@ -83,15 +80,33 @@ export default function Webview() {
     }
   };
 
+  const handleBackPress = () => {
+    if (canGoBack && webviewRef.current) {
+      webviewRef.current.goBack();
+    } else {
+      router.replace('/');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} />
-        </TouchableOpacity>
+        {/* ← Flèche retour */}
+        <View style={{ flexDirection: 'row' }}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.iconBtn}>
+            <Ionicons name="arrow-back" size={24} />
+          </TouchableOpacity>
 
+          {/* ❌ Croix pour quitter */}
+          <TouchableOpacity onPress={() => router.replace('/')} style={styles.iconBtn}>
+            <Ionicons name="close" size={22} />
+          </TouchableOpacity>
+        </View>
+
+        {/* URL affichée */}
         <Text numberOfLines={1} style={styles.urlText}>{url}</Text>
 
+        {/* 🛒 Panier */}
         <TouchableOpacity onPress={() => router.push('/panier')} style={styles.cartWrapper}>
           <Ionicons name="cart-outline" size={24} color="black" />
           {cartItems.length > 0 && (
@@ -103,12 +118,16 @@ export default function Webview() {
       </View>
 
       <WebView
+        ref={webviewRef}
         source={{ uri: url }}
-        injectedJavaScript={injectedAmazonScript}
+        injectedJavaScript={injectedZalandoScript}
         onMessage={handleMessage}
         javaScriptEnabled
         startInLoadingState
         style={{ flex: 1 }}
+        onNavigationStateChange={(navState) => {
+          setCanGoBack(navState.canGoBack);
+        }}
       />
 
       <ProductModal
@@ -125,17 +144,16 @@ export default function Webview() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderColor: '#eee',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     justifyContent: 'space-between',
   },
-  backButton: { padding: 4 },
+  iconBtn: { padding: 6 },
   urlText: {
     flex: 1,
     fontSize: 13,
@@ -145,7 +163,7 @@ const styles = StyleSheet.create({
   },
   cartWrapper: {
     position: 'relative',
-    padding: 4,
+    padding: 6,
   },
   badge: {
     position: 'absolute',

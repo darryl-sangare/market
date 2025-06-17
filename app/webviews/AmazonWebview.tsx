@@ -1,24 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { useCart } from '../context/CartContext';
-import ProductModal from '../components/ProductModal';
+import { useCart } from '../../context/CartContext';
+import ProductModal from '../../components/ProductModal';
 
-export default function Webview() {
-  const { url } = useLocalSearchParams<{ url: string }>();
+export default function AmazonWebview({ url }: { url: string }) {
   const { addToCart, cartItems } = useCart();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-
-  if (!url) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <Text>URL invalide</Text>
-      </SafeAreaView>
-    );
-  }
 
   const siteName = new URL(url).hostname.replace('www.', '');
 
@@ -27,7 +18,6 @@ export default function Webview() {
       try {
         const title = document.getElementById('productTitle')?.innerText?.trim() || '';
 
-        // ✅ Récupération du prix via ".a-price" (le plus courant sur Amazon)
         let price = '';
         const priceBlock = document.querySelector('.a-price');
         if (priceBlock) {
@@ -39,12 +29,13 @@ export default function Webview() {
         }
 
         const image =
-          document.getElementById('landingImage')?.src ||
+          document.querySelector('#landingImage')?.src ||
+          document.querySelector('#landingImage')?.getAttribute('data-old-hires') ||
           document.querySelector('#imgTagWrapperId img')?.src ||
           document.querySelector('img')?.src || '';
 
         const button = document.createElement('button');
-        button.innerText = "Ajouter sur AfrikZone";
+        button.innerText = "Ajouterrrr au panier";
         button.style.position = "fixed";
         button.style.bottom = "20px";
         button.style.left = "50%";
@@ -75,7 +66,6 @@ export default function Webview() {
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('🛒 Produit reçu :', data);
       setSelectedProduct({ ...data, site: siteName });
       setModalVisible(true);
     } catch (error) {

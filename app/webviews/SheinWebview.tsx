@@ -1,50 +1,46 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { useCart } from '../context/CartContext';
-import ProductModal from '../components/ProductModal';
+import { useCart } from '../../context/CartContext';
+import ProductModal from '../../components/ProductModal';
 
-export default function Webview() {
-  const { url } = useLocalSearchParams<{ url: string }>();
+export default function SheinWebview({ url }: { url: string }) {
   const { addToCart, cartItems } = useCart();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-  if (!url) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <Text>URL invalide</Text>
-      </SafeAreaView>
-    );
-  }
-
   const siteName = new URL(url).hostname.replace('www.', '');
 
-  const injectedAmazonScript = `
+  const injectedSheinScript = `
     (function() {
       try {
-        const title = document.getElementById('productTitle')?.innerText?.trim() || '';
+        const title = document.querySelector('h1')?.innerText?.trim() || document.title;
 
-        // ✅ Récupération du prix via ".a-price" (le plus courant sur Amazon)
+        // ✅ Prix
         let price = '';
-        const priceBlock = document.querySelector('.a-price');
-        if (priceBlock) {
-          const whole = priceBlock.querySelector('.a-price-whole')?.innerText?.replace(/[^0-9]/g, '') || '';
-          const fraction = priceBlock.querySelector('.a-price-fraction')?.innerText?.replace(/[^0-9]/g, '') || '00';
-          if (whole) {
-            price = \`\${whole},\${fraction}\`;
+        const span = document.querySelector('#productMainPriceId span');
+        if (span) {
+          const main = span.querySelector('span')?.innerText?.trim() || '';
+          const text = Array.from(span.childNodes)
+            .filter(n => n.nodeType === Node.TEXT_NODE)
+            .map(n => n.textContent.trim())
+            .join('');
+          const cents = text.match(/[.,][0-9]{1,2}/)?.[0]?.replace(',', '') || '00';
+          if (main) {
+            price = \`\${main},\${cents}\`;
           }
         }
 
+        // ✅ Image
         const image =
-          document.getElementById('landingImage')?.src ||
-          document.querySelector('#imgTagWrapperId img')?.src ||
+          document.querySelector('.crop-image-container__img')?.src ||
+          document.querySelector('meta[property="og:image"]')?.content ||
           document.querySelector('img')?.src || '';
 
         const button = document.createElement('button');
-        button.innerText = "Ajouter sur AfrikZone";
+        button.innerText = "Ajouter au panier";
         button.style.position = "fixed";
         button.style.bottom = "20px";
         button.style.left = "50%";
@@ -66,7 +62,7 @@ export default function Webview() {
         };
         document.body.appendChild(button);
       } catch (e) {
-        console.log('❌ Erreur Amazon JS:', e);
+        console.log('❌ Erreur JS Shein:', e);
       }
     })();
     true;
@@ -75,7 +71,6 @@ export default function Webview() {
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('🛒 Produit reçu :', data);
       setSelectedProduct({ ...data, site: siteName });
       setModalVisible(true);
     } catch (error) {
@@ -104,7 +99,7 @@ export default function Webview() {
 
       <WebView
         source={{ uri: url }}
-        injectedJavaScript={injectedAmazonScript}
+        injectedJavaScript={injectedSheinScript}
         onMessage={handleMessage}
         javaScriptEnabled
         startInLoadingState

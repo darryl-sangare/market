@@ -1,50 +1,47 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { useCart } from '../context/CartContext';
-import ProductModal from '../components/ProductModal';
+import { router } from 'expo-router';
+import { useCart } from '../../context/CartContext';
+import ProductModal from '../../components/ProductModal';
 
-export default function Webview() {
-  const { url } = useLocalSearchParams<{ url: string }>();
+interface Props {
+  url: string;
+}
+
+export default function ZaraWebview({ url }: Props) {
   const { addToCart, cartItems } = useCart();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-  if (!url) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <Text>URL invalide</Text>
-      </SafeAreaView>
-    );
-  }
-
   const siteName = new URL(url).hostname.replace('www.', '');
 
-  const injectedAmazonScript = `
-    (function() {
+  const injectedZaraScript = `
+    window.addEventListener('load', function () {
       try {
-        const title = document.getElementById('productTitle')?.innerText?.trim() || '';
+        const title = document.querySelector('h1')?.innerText?.trim() || document.title;
 
-        // ✅ Récupération du prix via ".a-price" (le plus courant sur Amazon)
         let price = '';
-        const priceBlock = document.querySelector('.a-price');
-        if (priceBlock) {
-          const whole = priceBlock.querySelector('.a-price-whole')?.innerText?.replace(/[^0-9]/g, '') || '';
-          const fraction = priceBlock.querySelector('.a-price-fraction')?.innerText?.replace(/[^0-9]/g, '') || '00';
-          if (whole) {
-            price = \`\${whole},\${fraction}\`;
+        const priceEl = document.querySelector('.money-amount__main');
+        if (priceEl) {
+          const raw = priceEl.textContent?.replace(/EUR|€/g, '').trim();
+          const match = raw?.match(/[0-9]+[.,][0-9]{2}/);
+          if (match) price = match[0];
+        }
+
+        let image = '';
+        const imgs = document.querySelectorAll('img');
+        for (const img of imgs) {
+          const src = img.src || '';
+          if (src.includes('static.zara.net/photos')) {
+            image = src;
+            break;
           }
         }
 
-        const image =
-          document.getElementById('landingImage')?.src ||
-          document.querySelector('#imgTagWrapperId img')?.src ||
-          document.querySelector('img')?.src || '';
-
         const button = document.createElement('button');
-        button.innerText = "Ajouter sur AfrikZone";
+        button.innerText = "Ajouter au panier";
         button.style.position = "fixed";
         button.style.bottom = "20px";
         button.style.left = "50%";
@@ -56,7 +53,7 @@ export default function Webview() {
         button.style.borderRadius = "8px";
         button.style.fontSize = "16px";
         button.style.zIndex = "9999";
-        button.onclick = function() {
+        button.onclick = function () {
           window.ReactNativeWebView.postMessage(JSON.stringify({
             url: window.location.href,
             title,
@@ -66,20 +63,20 @@ export default function Webview() {
         };
         document.body.appendChild(button);
       } catch (e) {
-        console.log('❌ Erreur Amazon JS:', e);
+        console.log('❌ Erreur injection Zara:', e);
       }
-    })();
+    });
     true;
   `;
 
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('🛒 Produit reçu :', data);
+      console.log('🛒 Produit Zara :', data);
       setSelectedProduct({ ...data, site: siteName });
       setModalVisible(true);
     } catch (error) {
-      console.log('❌ Erreur parsing WebView → React Native :', error);
+      console.log('❌ Erreur parsing WebView Zara:', error);
     }
   };
 
@@ -104,7 +101,7 @@ export default function Webview() {
 
       <WebView
         source={{ uri: url }}
-        injectedJavaScript={injectedAmazonScript}
+        injectedJavaScript={injectedZaraScript}
         onMessage={handleMessage}
         javaScriptEnabled
         startInLoadingState
@@ -125,7 +122,6 @@ export default function Webview() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     height: 50,
     flexDirection: 'row',
