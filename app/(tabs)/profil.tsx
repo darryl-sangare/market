@@ -6,6 +6,8 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  SafeAreaView,
+  Platform,
 } from 'react-native';
 import { Ionicons, MaterialIcons, Entypo, FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -28,113 +30,112 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const options = [
-    { label: 'Mes commandes', icon: 'bag-outline', onPress: () => {} },
-    { label: 'Mes informations', icon: 'person-outline', onPress: () => {} },
-    { label: 'Devise', icon: 'cash-outline', right: 'XOF', onPress: () => {} },
-    { label: 'Changer le mot de passe', icon: 'lock-closed-outline', onPress: () => {} },
-    { label: 'Mon adresse', icon: 'home-outline', onPress: () => {} },
-    { label: 'Nous contacter', icon: 'chatbubble-ellipses-outline', onPress: () => {} },
-  ];
-
   const username = user?.email?.split('@')[0] || 'Utilisateur';
 
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.titleWrapper}>
-        <Text style={styles.title}>Hello {username}</Text>
-        {role === 'admin' && (
-          <FontAwesome
-            name="star"
-            size={18}
-            color="#f0c419"
-            style={{ marginLeft: 6 }}
-          />
-        )}
-      </View>
+  const options = [
+    {
+      label: role === 'admin' ? 'Commandes en attente' : 'Mes commandes',
+      icon: 'bag-outline',
+      onPress: () =>
+        router.push(role === 'admin' ? '/admin' : '/commandes'),
+    },
+    { label: 'Mes informations', icon: 'person-outline', onPress: () => {} },
+    { label: 'Devise', icon: 'cash-outline', right: 'XOF', onPress: () => {} },
+    {
+      label: 'Changer le mot de passe',
+      icon: 'lock-closed-outline',
+      onPress: () => {},
+    },
+    { label: 'Mon adresse', icon: 'home-outline', onPress: () => {} },
+    {
+      label: 'Nous contacter',
+      icon: 'chatbubble-ellipses-outline',
+      onPress: () => {},
+    },
+  ];
 
-      {role === 'admin' && (
+  return (
+    <SafeAreaView style={styles.safe}>
+      <ScrollView style={styles.container}>
+        <View style={styles.titleWrapper}>
+          <Text style={styles.title}>Hello {username}</Text>
+          {role === 'admin' && (
+            <FontAwesome
+              name="star"
+              size={18}
+              color="#f0c419"
+              style={{ marginLeft: 6 }}
+            />
+          )}
+        </View>
+
         <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.item}
-            onPress={() => router.push('/')}
-          >
+          {options.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.item}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.row}>
+                <Ionicons
+                  name={item.icon as any}
+                  size={20}
+                  color="#333"
+                  style={styles.icon}
+                />
+                <Text style={styles.label}>{item.label}</Text>
+              </View>
+              <View style={styles.row}>
+                {item.right && (
+                  <Text style={styles.rightText}>{item.right}</Text>
+                )}
+                <Ionicons name="chevron-forward" size={18} color="#999" />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.item} onPress={() => {}}>
             <View style={styles.row}>
-              <Ionicons
-                name="time-outline"
+              <MaterialIcons
+                name="delete-outline"
                 size={20}
                 color="#333"
                 style={styles.icon}
               />
-              <Text style={styles.label}>Commandes en attente</Text>
+              <Text style={styles.label}>Supprimer mon compte</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#999" />
           </TouchableOpacity>
-        </View>
-      )}
 
-      <View style={styles.section}>
-        {options.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.item}
-            onPress={item.onPress}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.item} onPress={handleLogout}>
             <View style={styles.row}>
-              <Ionicons
-                name={item.icon as any}
+              <Entypo
+                name="log-out"
                 size={20}
-                color="#333"
+                color="red"
                 style={styles.icon}
               />
-              <Text style={styles.label}>{item.label}</Text>
-            </View>
-            <View style={styles.row}>
-              {item.right && (
-                <Text style={styles.rightText}>{item.right}</Text>
-              )}
-              <Ionicons name="chevron-forward" size={18} color="#999" />
+              <Text style={[styles.label, { color: 'red' }]}>Déconnexion</Text>
             </View>
           </TouchableOpacity>
-        ))}
-      </View>
+        </View>
 
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.item} onPress={() => {}}>
-          <View style={styles.row}>
-            <MaterialIcons
-              name="delete-outline"
-              size={20}
-              color="#333"
-              style={styles.icon}
-            />
-            <Text style={styles.label}>Supprimer mon compte</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#999" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.item} onPress={handleLogout}>
-          <View style={styles.row}>
-            <Entypo
-              name="log-out"
-              size={20}
-              color="red"
-              style={styles.icon}
-            />
-            <Text style={[styles.label, { color: 'red' }]}>Déconnexion</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.version}>Version 1.0.0</Text>
-    </ScrollView>
+        <Text style={styles.version}>Version 1.0.0</Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
+    flex: 1,
     backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? 30 : 0,
+  },
+  container: {
     flex: 1,
     padding: 16,
   },

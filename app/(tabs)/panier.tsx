@@ -1,4 +1,3 @@
-// ✅ panier.tsx avec total général des articles affiché
 import React, { useState } from 'react';
 import {
   View,
@@ -62,6 +61,56 @@ export default function Panier() {
 
     if (!error) fetchCart();
     else console.error('Erreur Supabase (clear all):', error.message);
+  };
+
+  const handleCommander = async () => {
+    if (!user) return Alert.alert("Erreur", "Utilisateur non connecté");
+    if (cartItems.length === 0) return Alert.alert("Erreur", "Panier vide");
+
+    const totalArticles = cartItems.reduce((total, item) => {
+      const prix = parseFloat(item.price || '0');
+      return total + (isNaN(prix) ? 0 : prix);
+    }, 0);
+
+    const totalClient = +(totalArticles * 1.05).toFixed(2);
+
+    const articles = cartItems.map(item => ({
+      title: item.title,
+      price: parseFloat(item.price || '0'),
+      taille: item.taille,
+      couleur: item.couleur,
+      quantite: item.quantite || 1,
+      site: item.site,
+      url: item.url,
+      image: item.image,
+    }));
+
+    const { error } = await supabase.from('commandes').insert([
+      {
+        user_id: user.id,
+        articles,
+        total_articles: totalArticles,
+        total_client: totalClient,
+        statut: 'en_attente',
+      },
+    ]);
+
+    if (error) {
+      console.error("Erreur commande :", error);
+      Alert.alert("Erreur", "Impossible de créer la commande.");
+      return;
+    }
+
+    await supabase.from('cart_items').delete().eq('user_id', user.id);
+    fetchCart();
+
+    const images = articles.map(a => a.image).filter(Boolean);
+    router.push({
+      pathname: '/confirmation',
+      params: {
+        images: JSON.stringify(images),
+      },
+    });
   };
 
   const toggleTitle = (id: string) => {
@@ -128,9 +177,17 @@ export default function Panier() {
       />
 
       {cartItems.length > 0 && (
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalText}>Total des articles : {totalGeneral} €</Text>
-        </View>
+        <>
+          <View style={styles.totalContainer}>
+            <Text style={styles.totalText}>Total des articles : {totalGeneral} €</Text>
+          </View>
+
+          <TouchableOpacity onPress={handleCommander} style={styles.commandButton}>
+            <Text style={styles.commandButtonText}>
+              Commander (Total +5 % : {(Number(totalGeneral) * 1.05).toFixed(2)} €)
+            </Text>
+          </TouchableOpacity>
+        </>
       )}
     </View>
   );
@@ -221,5 +278,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'right',
+  },
+  commandButton: {
+    backgroundColor: '#28a745',
+    padding: 14,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  commandButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
 });
