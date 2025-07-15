@@ -22,6 +22,8 @@ interface Article {
   image?: string;
   price: number;
   quantite: number;
+  url: string;
+  site: string;
 }
 
 interface Commande {
@@ -66,18 +68,41 @@ export default function MesCommandes() {
     setRefreshing(false);
   };
 
+  const getWebviewPath = (site: string) => {
+    const s = site.toLowerCase();
+    if (s.includes('amazon')) return '/webviews/AmazonWebview';
+    if (s.includes('zara')) return '/webviews/ZaraWebview';
+    if (s.includes('shein')) return '/webviews/SheinWebview';
+    if (s.includes('zalando')) return '/webviews/ZalandoWebview';
+    if (s.includes('asos')) return '/webviews/AsosWebview';
+    if (s.includes('hm') || s.includes('h&m')) return '/webviews/HmWebview';
+    return '/webviews/DefaultWebview';
+  };
+
+  const handleArticlePress = (article: Article) => {
+    const webviewPath = getWebviewPath(article.site);
+    router.push({
+      pathname: webviewPath,
+      params: { url: article.url },
+    });
+  };
+
   const renderArticle = (item: Article, idx: number) => (
-    <View key={idx} style={styles.articleRow}>
-      {item.image ? (
+    <TouchableOpacity
+      key={idx}
+      onPress={() => handleArticlePress(item)}
+      style={styles.articleRow}
+    >
+      {item.image && (
         <Image source={{ uri: item.image }} style={styles.articleImage} />
-      ) : null}
+      )}
       <View style={styles.articleInfo}>
         <Text style={styles.articleTitle}>{item.title}</Text>
         <Text style={styles.articleDetail}>
           {item.quantite} × {item.price.toFixed(2)} €
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderCommande = ({ item }: { item: Commande }) => {

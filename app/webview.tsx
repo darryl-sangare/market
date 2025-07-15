@@ -44,7 +44,7 @@ export default function Webview() {
           document.querySelector('img')?.src || '';
 
         const button = document.createElement('button');
-        button.innerText = "Ajouter sur AfrikZone";
+        button.innerText = "Ajouter sur test";
         button.style.position = "fixed";
         button.style.bottom = "20px";
         button.style.left = "50%";

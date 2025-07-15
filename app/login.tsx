@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,12 @@ import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { supabase } from '../lib/supabase'; 
+
+WebBrowser.maybeCompleteAuthSession();
+
 export default function Login() {
   const { login } = useAuth();
   const router = useRouter();
@@ -20,6 +26,28 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    iosClientId: '192527813561-pslstj0mbc043742s2ht1o0d9gnl95vp.apps.googleusercontent.com',
+  }) as ReturnType<typeof Google.useAuthRequest>;
+
+  useEffect(() => {
+    const signInWithGoogle = async () => {
+      if (response?.type === 'success' && response.authentication?.idToken) {
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: response.authentication.idToken,
+        });
+
+        if (error) {
+          console.error('Erreur Google Supabase :', error.message);
+          setErrorMsg('Erreur de connexion Google');
+        }
+      }
+    };
+
+    signInWithGoogle();
+  }, [response]);
 
   const handleLogin = async () => {
     setErrorMsg('');
@@ -71,6 +99,13 @@ export default function Login() {
 
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <Text style={styles.loginButtonText}>Se connecter</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => promptAsync()}
+            style={[styles.loginButton, { backgroundColor: '#DB4437' }]}
+          >
+            <Text style={styles.loginButtonText}>Se connecter avec Google</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.registerLink} onPress={() => router.push('/register')}>

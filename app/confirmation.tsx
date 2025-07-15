@@ -7,21 +7,22 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
 
 export default function ConfirmationCommande() {
   const router = useRouter();
   const { images } = useLocalSearchParams();
+  const insets = useSafeAreaInsets(); 
   const imageList = typeof images === 'string' ? JSON.parse(images) : [];
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { paddingTop: insets.top }]}>
       <TouchableOpacity
-        onPress={() => router.push('/')}
-        style={styles.closeBtn}
+        onPress={() => router.push('/home')}
+        style={[styles.closeBtn, { top: insets.top + 10 }]} 
       >
         <Ionicons name="close-outline" size={32} color="#333" />
       </TouchableOpacity>
@@ -54,7 +55,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'android' ? 30 : 0,
   },
   container: {
     paddingHorizontal: 20,
@@ -64,7 +64,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? 40 : 20,
     right: 20,
     zIndex: 10,
   },

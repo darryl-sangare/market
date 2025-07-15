@@ -36,6 +36,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const fetchRole = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (!error && data) {
+      setRole(data.role);
+    }
+  };
+
   const fetchUser = async () => {
     const { data: sessionData } = await supabase.auth.getSession();
 
@@ -50,19 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setRole(null);
     }
 
-    setLoading(false);
-  };
-
-  const fetchRole = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (!error && data) {
-      setRole(data.role);
-    }
+    setLoading(false); 
   };
 
   const login = async (email: string, password: string) => {
@@ -113,6 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     fetchUser();
   }, []);
 
+  
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
@@ -124,6 +125,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setRole(null);
       }
+
+      setLoading(false); 
     });
 
     return () => {

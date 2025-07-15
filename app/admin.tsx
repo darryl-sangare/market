@@ -27,7 +27,7 @@ export default function AdminCommandes() {
     if (role === 'admin') {
       fetchCommandes();
     } else {
-      router.replace('/'); // redirection si pas admin
+      router.replace('/home');
     }
   }, [role]);
 
@@ -58,7 +58,23 @@ export default function AdminCommandes() {
       return;
     }
 
-    fetchCommandes(); // recharge après action
+    fetchCommandes();
+  };
+
+  const getWebviewPath = (site: string) => {
+    const s = site.toLowerCase();
+    if (s.includes('amazon')) return '/webviews/AmazonWebview';
+    if (s.includes('zara')) return '/webviews/ZaraWebview';
+    if (s.includes('shein')) return '/webviews/SheinWebview';
+    if (s.includes('zalando')) return '/webviews/ZalandoWebview';
+    if (s.includes('asos')) return '/webviews/AsosWebview';
+    if (s.includes('hm') || s.includes('h&m')) return '/webviews/HmWebview';
+    return '/webviews/DefaultWebview';
+  };
+
+  const handleArticlePress = (article: any) => {
+    const path = getWebviewPath(article.site);
+    router.push({ pathname: path, params: { url: article.url } });
   };
 
   const renderCommande = (commande: any) => {
@@ -73,17 +89,21 @@ export default function AdminCommandes() {
         </View>
 
         {articles.map((a: any, index: number) => (
-          <View key={index} style={styles.articleRow}>
-            {a.image ? (
+          <TouchableOpacity
+            key={index}
+            onPress={() => handleArticlePress(a)}
+            style={styles.articleRow}
+          >
+            {a.image && (
               <Image source={{ uri: a.image }} style={styles.articleImage} />
-            ) : null}
+            )}
             <View style={styles.articleInfo}>
               <Text style={styles.articleTitle}>{a.title}</Text>
               <Text style={styles.articleDetail}>
                 {a.quantite} × {a.price?.toFixed(2)} €
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
 
         <View style={styles.footerRow}>

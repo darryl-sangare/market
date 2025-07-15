@@ -32,6 +32,18 @@ export default function Panier() {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  
+  const getWebviewPath = (site: string) => {
+    const s = site.toLowerCase();
+    if (s.includes('amazon')) return '/webviews/AmazonWebview';
+    if (s.includes('zara')) return '/webviews/ZaraWebview';
+    if (s.includes('shein')) return '/webviews/SheinWebview';
+    if (s.includes('zalando')) return '/webviews/ZalandoWebview';
+    if (s.includes('asos')) return '/webviews/AsosWebview';
+    if (s.includes('h&m') || s.includes('hm')) return '/webviews/HmWebview';
+    return '/webviews/DefaultWebview';
+  };
+
   const handleDelete = async (id: string) => {
     const confirm = await new Promise<boolean>((resolve) =>
       Alert.alert('Supprimer', 'Retirer cet article du panier ?', [
@@ -47,9 +59,9 @@ export default function Panier() {
 
   const handleClearAll = async () => {
     const confirm = await new Promise<boolean>((resolve) =>
-      Alert.alert('Tout supprimer', 'Voulez-vous vider tout le panier ?', [
+      Alert.alert('Tout supprimer', 'Vider le panier ?', [
         { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
-        { text: 'Tout supprimer', style: 'destructive', onPress: () => resolve(true) },
+        { text: 'Oui', style: 'destructive', onPress: () => resolve(true) },
       ])
     );
     if (!confirm || !user) return;
@@ -60,12 +72,11 @@ export default function Panier() {
       .eq('user_id', user.id);
 
     if (!error) fetchCart();
-    else console.error('Erreur Supabase (clear all):', error.message);
   };
 
   const handleCommander = async () => {
-    if (!user) return Alert.alert("Erreur", "Utilisateur non connecté");
-    if (cartItems.length === 0) return Alert.alert("Erreur", "Panier vide");
+    if (!user) return Alert.alert("Erreur", "Connectez-vous d'abord.");
+    if (cartItems.length === 0) return Alert.alert("Erreur", "Panier vide.");
 
     const totalArticles = cartItems.reduce((total, item) => {
       const prix = parseFloat(item.price || '0');
@@ -97,8 +108,7 @@ export default function Panier() {
 
     if (error) {
       console.error("Erreur commande :", error);
-      Alert.alert("Erreur", "Impossible de créer la commande.");
-      return;
+      return Alert.alert("Erreur", "Impossible de créer la commande.");
     }
 
     await supabase.from('cart_items').delete().eq('user_id', user.id);
@@ -124,7 +134,12 @@ export default function Panier() {
 
   const renderItem = ({ item }: { item: CartItem }) => (
     <TouchableOpacity
-      onPress={() => router.push({ pathname: '/webview', params: { url: item.url } })}
+      onPress={() =>
+        router.push({
+          pathname: getWebviewPath(item.site),
+          params: { url: item.url },
+        })
+      }
       style={styles.card}
     >
       <Image
@@ -141,7 +156,7 @@ export default function Panier() {
             {item.title || 'Produit sans titre'}
           </Text>
         </TouchableOpacity>
-        <Text style={styles.price}>{item.price || 'Prix non défini'} €</Text>
+        <Text style={styles.price}>{item.price || '-'} €</Text>
         <Text style={styles.detail}>Taille : {item.taille || '-'}</Text>
         <Text style={styles.detail}>Couleur : {item.couleur || '-'}</Text>
         <Text style={styles.detail}>Quantité : {item.quantite || 1}</Text>
@@ -179,12 +194,14 @@ export default function Panier() {
       {cartItems.length > 0 && (
         <>
           <View style={styles.totalContainer}>
-            <Text style={styles.totalText}>Total des articles : {totalGeneral} €</Text>
+            <Text style={styles.totalText}>
+              Total articles : {totalGeneral} €
+            </Text>
           </View>
 
           <TouchableOpacity onPress={handleCommander} style={styles.commandButton}>
             <Text style={styles.commandButtonText}>
-              Commander (Total +5 % : {(Number(totalGeneral) * 1.05).toFixed(2)} €)
+              Commander (Total +5% : {(Number(totalGeneral) * 1.05).toFixed(2)} €)
             </Text>
           </TouchableOpacity>
         </>

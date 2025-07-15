@@ -8,16 +8,25 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCart } from '../../context/CartContext';
 import ProductModal from '../../components/ProductModal';
 
-export default function ZalandoWebview({ url }: { url: string }) {
+export default function ZalandoWebview() {
+  const { url } = useLocalSearchParams();
   const { addToCart, cartItems } = useCart();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const webviewRef = useRef<any>(null);
+
+  if (!url || typeof url !== 'string') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={{ padding: 20 }}>URL invalide ou manquante</Text>
+      </SafeAreaView>
+    );
+  }
 
   const siteName = new URL(url).hostname.replace('www.', '');
 
@@ -84,29 +93,24 @@ export default function ZalandoWebview({ url }: { url: string }) {
     if (canGoBack && webviewRef.current) {
       webviewRef.current.goBack();
     } else {
-      router.replace('/');
+      router.replace('/home');
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        {/* ← Flèche retour */}
         <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity onPress={handleBackPress} style={styles.iconBtn}>
             <Ionicons name="arrow-back" size={24} />
           </TouchableOpacity>
-
-          {/* ❌ Croix pour quitter */}
-          <TouchableOpacity onPress={() => router.replace('/')} style={styles.iconBtn}>
+          <TouchableOpacity onPress={() => router.replace('/home')} style={styles.iconBtn}>
             <Ionicons name="close" size={22} />
           </TouchableOpacity>
         </View>
 
-        {/* URL affichée */}
         <Text numberOfLines={1} style={styles.urlText}>{url}</Text>
 
-        {/* 🛒 Panier */}
         <TouchableOpacity onPress={() => router.push('/panier')} style={styles.cartWrapper}>
           <Ionicons name="cart-outline" size={24} color="black" />
           {cartItems.length > 0 && (

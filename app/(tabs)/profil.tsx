@@ -30,23 +30,40 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Suppression du compte',
+      'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            Alert.alert('Compte supprimé', 'La suppression réelle doit être faite via une API sécurisée.');
+            await logout();
+          },
+        },
+      ]
+    );
+  };
+
   const username = user?.email?.split('@')[0] || 'Utilisateur';
 
   const options = [
     {
       label: role === 'admin' ? 'Commandes en attente' : 'Mes commandes',
       icon: 'bag-outline',
-      onPress: () =>
-        router.push(role === 'admin' ? '/admin' : '/commandes'),
+      onPress: () => router.push(role === 'admin' ? '/admin' : '/commandes'),
     },
-    { label: 'Mes informations', icon: 'person-outline', onPress: () => {} },
+    { label: 'Mes informations', icon: 'person-outline', onPress: () => router.push('/infos') },
     { label: 'Devise', icon: 'cash-outline', right: 'XOF', onPress: () => {} },
     {
       label: 'Changer le mot de passe',
       icon: 'lock-closed-outline',
-      onPress: () => {},
+      onPress: () => router.push('/changer-mot-de-passe'),
     },
-    { label: 'Mon adresse', icon: 'home-outline', onPress: () => {} },
+    { label: 'Mon adresse', icon: 'home-outline', onPress: () => router.push('/adresses') },
     {
       label: 'Nous contacter',
       icon: 'chatbubble-ellipses-outline',
@@ -97,7 +114,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <TouchableOpacity style={styles.item} onPress={() => {}}>
+          <TouchableOpacity style={styles.item} onPress={handleDeleteAccount}>
             <View style={styles.row}>
               <MaterialIcons
                 name="delete-outline"

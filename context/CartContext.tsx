@@ -1,4 +1,3 @@
-// ✅ CartContext.tsx corrigé pour ajout au panier
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';

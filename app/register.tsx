@@ -7,15 +7,15 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import CountryPicker, { Country, CountryCode } from 'react-native-country-picker-modal';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
 export default function Register() {
-  const { register } = useAuth();
   const router = useRouter();
 
   const [firstName, setFirstName] = useState('');
@@ -26,144 +26,149 @@ export default function Register() {
   const [country, setCountry] = useState<Country | undefined>();
   const [countryCode, setCountryCode] = useState<CountryCode>('FR');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [birthDate, setBirthDate] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const validateEmail = (email: string) => email.includes('@') && email.includes('.');
 
   const handleRegister = async () => {
-    setErrorMsg('');
-    if (!firstName || !email || !password || !country || !phoneNumber) {
-      setErrorMsg('Veuillez remplir tous les champs requis.');
-      return;
-    }
-    if (!validateEmail(email)) {
-      setErrorMsg("L'adresse email est invalide.");
-      return;
-    }
-    if (password.length < 6) {
-      setErrorMsg('Le mot de passe doit contenir au moins 6 caractères.');
+  setErrorMsg('');
+
+  if (!email || !password || !country || !phoneNumber) {
+    setErrorMsg('Veuillez remplir tous les champs requis.');
+    return;
+  }
+
+  if (!validateEmail(email)) {
+    setErrorMsg("L'adresse email est invalide.");
+    return;
+  }
+
+  if (password.length < 6) {
+    setErrorMsg('Le mot de passe doit contenir au moins 6 caractères.');
+    return;
+  }
+
+  if (!/^\d{6,15}$/.test(phoneNumber)) {
+    setErrorMsg('Veuillez entrer un numéro de téléphone valide.');
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error || !data?.user?.id) {
+      setErrorMsg(error?.message || 'Erreur lors de la création du compte.');
       return;
     }
 
-    try {
-      await register(email, password, 'user', {
-        first_name: firstName,
-        last_name: lastName,
-        country: typeof country?.name === 'object' ? country.name.common : country?.name,
-        phone_number: `+${country?.callingCode?.[0] || ''} ${phoneNumber}`,
-        birth_date: birthDate instanceof Date ? birthDate.toISOString().split('T')[0] : null,
-      });
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erreur lors de l'inscription.");
+    const userId = data.user.id;
+
+    const { error: profileError } = await supabase.from('user_profiles').insert({
+      id: userId, 
+      country: typeof country?.name === 'object' ? country.name.common : country?.name,
+      phone_number: `+${country?.callingCode?.[0] || ''} ${phoneNumber}`,
+    });
+
+    if (profileError) {
+      setErrorMsg('Compte créé, mais erreur lors de l’enregistrement du profil.');
+      return;
     }
-  };
+
+    router.replace('/login');
+  } catch (err: any) {
+    setErrorMsg(err.message || "Erreur lors de l'inscription.");
+  }
+};
+
 
   const handleCountrySelect = (selectedCountry: Country) => {
     setCountry(selectedCountry);
     setCountryCode(selectedCountry.cca2);
   };
 
-  const handleDateChange = (_: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) setBirthDate(selectedDate);
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Créer un compte</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.container}>
+            <Text style={styles.title}>Créer un compte</Text>
 
-          {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+            {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
 
-          <Text style={styles.label}>Prénom</Text>
-          <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="John" />
+            <Text style={styles.label}>Prénom</Text>
+            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="John" />
 
-          <Text style={styles.label}>Nom</Text>
-          <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Adore" />
+            <Text style={styles.label}>Nom</Text>
+            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Adore" />
 
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="exemple : pierre.martin@gmail.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          <Text style={styles.label}>Pays</Text>
-          <View style={styles.pickerWrapper}>
-            <CountryPicker
-              withFilter
-              withFlag
-              withCountryNameButton
-              countryCode={countryCode}
-              onSelect={handleCountrySelect}
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="exemple@mail.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
-          </View>
 
-          <Text style={styles.label}>Téléphone</Text>
-          <View style={styles.phoneRow}>
-            <View style={styles.phonePrefix}>
+            <Text style={styles.label}>Pays</Text>
+            <View style={styles.pickerWrapper}>
               <CountryPicker
-                withCallingCodeButton
+                withFilter
                 withFlag
-                withCallingCode
+                withCountryNameButton
                 countryCode={countryCode}
                 onSelect={handleCountrySelect}
               />
             </View>
-            <TextInput
-              style={[styles.input, { flex: 1, marginLeft: 8 }]}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              placeholder="Entrer le numéro"
-              keyboardType="phone-pad"
-            />
-          </View>
 
-          <Text style={styles.label}>Date d'anniversaire</Text>
-          <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-            <Text style={{ color: birthDate ? '#000' : '#aaa' }}>
-              {birthDate ? birthDate.toLocaleDateString() : 'Sélectionner une date (optionnel)'}
-            </Text>
-          </TouchableOpacity>
+            <Text style={styles.label}>Téléphone</Text>
+            <View style={styles.phoneRow}>
+              <View style={styles.phonePrefix}>
+                <CountryPicker
+                  withCallingCodeButton
+                  withFlag
+                  withCallingCode
+                  countryCode={countryCode}
+                  onSelect={handleCountrySelect}
+                />
+              </View>
+              <TextInput
+                style={[styles.input, { flex: 1, marginLeft: 8 }]}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="Numéro"
+                keyboardType="phone-pad"
+              />
+            </View>
 
-          {showDatePicker && (
-            <DateTimePicker
-              value={birthDate || new Date()}
-              mode="date"
-              display="default"
-              onChange={handleDateChange}
-            />
-          )}
+            <Text style={styles.label}>Mot de passe</Text>
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                placeholder="•••••••"
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eye}>
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#888" />
+              </TouchableOpacity>
+            </View>
 
-          <Text style={styles.label}>Mot de passe</Text>
-          <View style={styles.passwordWrapper}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              placeholder="•••••••"
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eye}>
-              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#888" />
+            <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+              <Text style={styles.registerButtonText}>Créer un compte</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
+              <Text style={styles.loginButtonText}>J'ai déjà un compte</Text>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-            <Text style={styles.registerButtonText}>Créer un compte</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
-            <Text style={styles.loginButtonText}>J'ai déjà un compte</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -179,8 +184,17 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
   },
-  title: { fontSize: 22, fontWeight: '600', textAlign: 'center', marginBottom: 20 },
-  label: { marginBottom: 6, marginTop: 12, color: '#000' },
+  title: {
+    fontSize: 22,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  label: {
+    marginBottom: 6,
+    marginTop: 12,
+    color: '#000',
+  },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,
