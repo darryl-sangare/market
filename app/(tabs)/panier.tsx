@@ -71,6 +71,17 @@ export default function Panier() {
     if (!error) fetchCart();
   };
 
+  const checkAdressePrincipale = async (): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('adresses')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('principale', true)
+      .single();
+
+    return !!data && !error;
+  };
+
   const handleCommander = async () => {
     if (!user) {
       Alert.alert("Erreur", "Connectez-vous d'abord.");
@@ -79,6 +90,13 @@ export default function Panier() {
 
     if (cartItems.length === 0) {
       Alert.alert("Erreur", "Votre panier est vide.");
+      return;
+    }
+
+    const hasAdressePrincipale = await checkAdressePrincipale();
+
+    if (!hasAdressePrincipale) {
+      Alert.alert("Adresse manquante", "Veuillez ajouter une adresse principale avant de commander.");
       return;
     }
 
@@ -131,15 +149,13 @@ export default function Panier() {
         image: item.image,
       }));
 
-      const { error } = await supabase.from('commandes').insert([
-        {
-          user_id: user.id,
-          articles,
-          total_articles: totalArticles,
-          total_client: totalClient,
-          statut: 'en_attente',
-        },
-      ]);
+      const { error } = await supabase.from('commandes').insert([{
+        user_id: user.id,
+        articles,
+        total_articles: totalArticles,
+        total_client: totalClient,
+        statut: 'en_attente',
+      }]);
 
       if (error) {
         console.error("Erreur lors de l'enregistrement de la commande :", error);

@@ -1,53 +1,61 @@
-import { useStripe } from '@stripe/stripe-react-native';
-import React from 'react';
-import { Alert, Button, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 
 export default function PaiementScreen() {
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const router = useRouter();
+  const { adresseId, method } = useLocalSearchParams();
 
-  const handlePay = async () => {
-    try {
-      const res = await fetch("http://192.168.1.63:3000/api/stripe/create-payment-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 5000 }) // Montant en centimes (€)
-      });
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
-      const { clientSecret } = await res.json();
+  useEffect(() => {
+    const createCheckout = async () => {
+      try {
+        const response = await fetch("https://stripe-backend-qzpz.onrender.com/api/stripe/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: 5000, // 💶 montant à adapter dynamiquement si besoin
+            adresseId,
+            method,
+          }),
+        });
 
-      if (!clientSecret) {
-        Alert.alert("Erreur", "Le clientSecret est vide.");
-        return;
+        const data = await response.json();
+
+        if (!data.url) {
+          Alert.alert("Erreur", "URL de paiement introuvable.");
+          return;
+        }
+
+        setCheckoutUrl(data.url);
+      } catch (error) {
+        console.error("Erreur Stripe Checkout :", error);
+        Alert.alert("Erreur", "Impossible de lancer le paiement.");
       }
+    };
 
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: "Ma boutique",
-      });
+    createCheckout();
+  }, [adresseId, method]);
 
-      if (initError) {
-        Alert.alert("Erreur lors de l'initialisation", initError.message);
-        return;
-      }
-
-      const { error: paymentError } = await presentPaymentSheet();
-
-      if (paymentError) {
-        Alert.alert("Paiement refusé", paymentError.message);
-      } else {
-        Alert.alert("Succès", "Paiement validé !");
-        // Ici tu peux ajouter l'enregistrement de la commande
-      }
-
-    } catch (err) {
-      Alert.alert("Erreur", "Impossible de contacter le serveur.");
-      console.error(err);
-    }
-  };
+  if (!checkoutUrl) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#000" />
+      </View>
+    );
+  }
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
-      <Button title="Payer 50 €" onPress={handlePay} />
-    </View>
+    <WebView
+      source={{ uri: checkoutUrl }}
+      style={{ flex: 1 }}
+      onNavigationStateChange={(navState) => {
+        if (navState.url.includes('/success')) {
+          router.replace('/confirmation');
+        }
+      }}
+    />
   );
 }

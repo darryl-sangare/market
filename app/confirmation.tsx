@@ -1,39 +1,40 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { CheckCircle2 } from 'lucide-react-native';
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
   Image,
-  TouchableOpacity,
-  ScrollView,
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ConfirmationCommande() {
   const router = useRouter();
   const { images } = useLocalSearchParams();
-  const insets = useSafeAreaInsets(); 
+  const insets = useSafeAreaInsets();
   const imageList = typeof images === 'string' ? JSON.parse(images) : [];
 
   return (
     <SafeAreaView style={[styles.safe, { paddingTop: insets.top }]}>
       <TouchableOpacity
         onPress={() => router.push('/home')}
-        style={[styles.closeBtn, { top: insets.top + 10 }]} 
+        style={[styles.closeBtn, { top: insets.top + 10 }]}
       >
         <Ionicons name="close-outline" size={32} color="#333" />
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>🎉 Commande effectuée !</Text>
+        <CheckCircle2 size={72} color="#28a745" style={styles.icon} />
 
+        <Text style={styles.title}>Commande confirmée</Text>
         <Text style={styles.message}>
-          Votre commande a bien été enregistrée.{"\n"}
-          Un e-mail vous sera envoyé dès qu’elle sera traitée ou validée.{"\n\n"}
-          Merci pour votre fidélité 🙏
+          Merci pour votre achat !{"\n"}
+          Vous recevrez un e-mail dès que votre commande sera traitée.
         </Text>
 
         <View style={styles.imageList}>
@@ -46,6 +47,10 @@ export default function ConfirmationCommande() {
             />
           ))}
         </View>
+
+        <TouchableOpacity onPress={() => router.push('/home')} style={styles.returnButton}>
+          <Text style={styles.returnText}>Retour à l'accueil</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -57,8 +62,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingHorizontal: 24,
+    paddingTop: 80,
     paddingBottom: 40,
     alignItems: 'center',
   },
@@ -67,10 +72,14 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
   },
+  icon: {
+    marginBottom: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 16,
+    color: '#28a745',
+    marginBottom: 12,
     textAlign: 'center',
   },
   message: {
@@ -83,14 +92,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 16,
+    gap: 12,
   },
   image: {
-    width: 160,
-    height: 160,
+    width: 140,
+    height: 140,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#eee',
-    marginBottom: 16,
+    margin: 8,
+  },
+  returnButton: {
+    marginTop: 32,
+    backgroundColor: '#28a745',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  returnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
