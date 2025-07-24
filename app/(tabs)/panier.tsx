@@ -1,18 +1,19 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useStripe } from '@stripe/stripe-react-native';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
+  Alert,
   FlatList,
   Image,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useCart } from '../../context/CartContext';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
-import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
+import { supabase } from '../../lib/supabase';
 
 interface CartItem {
   id: string;
@@ -30,9 +31,9 @@ export default function Panier() {
   const { cartItems, fetchCart } = useCart();
   const { user } = useAuth();
   const router = useRouter();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  
   const getWebviewPath = (site: string) => {
     const s = site.toLowerCase();
     if (s.includes('amazon')) return '/webviews/AmazonWebview';
@@ -66,17 +67,20 @@ export default function Panier() {
     );
     if (!confirm || !user) return;
 
-    const { error } = await supabase
-      .from('cart_items')
-      .delete()
-      .eq('user_id', user.id);
-
+    const { error } = await supabase.from('cart_items').delete().eq('user_id', user.id);
     if (!error) fetchCart();
   };
 
   const handleCommander = async () => {
-    if (!user) return Alert.alert("Erreur", "Connectez-vous d'abord.");
-    if (cartItems.length === 0) return Alert.alert("Erreur", "Panier vide.");
+    if (!user) {
+      Alert.alert("Erreur", "Connectez-vous d'abord.");
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      Alert.alert("Erreur", "Votre panier est vide.");
+      return;
+    }
 
     const totalArticles = cartItems.reduce((total, item) => {
       const prix = parseFloat(item.price || '0');
@@ -85,42 +89,77 @@ export default function Panier() {
 
     const totalClient = +(totalArticles * 1.05).toFixed(2);
 
-    const articles = cartItems.map(item => ({
-      title: item.title,
-      price: parseFloat(item.price || '0'),
-      taille: item.taille,
-      couleur: item.couleur,
-      quantite: item.quantite || 1,
-      site: item.site,
-      url: item.url,
-      image: item.image,
-    }));
+    try {
+      const res = await fetch("https://stripe-backend-qzpz.onrender.com/api/stripe/create-payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: Math.round(totalClient * 100) })
+      });
 
-    const { error } = await supabase.from('commandes').insert([
-      {
-        user_id: user.id,
-        articles,
-        total_articles: totalArticles,
-        total_client: totalClient,
-        statut: 'en_attente',
-      },
-    ]);
+      const { clientSecret } = await res.json();
 
-    if (error) {
-      console.error("Erreur commande :", error);
-      return Alert.alert("Erreur", "Impossible de créer la commande.");
+      if (!clientSecret) {
+        Alert.alert("Erreur", "Le paiement a échoué (clientSecret introuvable).");
+        return;
+      }
+
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: "Ma boutique",
+      });
+
+      if (initError) {
+        Alert.alert("Erreur lors de l'initialisation", initError.message);
+        return;
+      }
+
+      const { error: paymentError } = await presentPaymentSheet();
+
+      if (paymentError) {
+        Alert.alert("Paiement annulé", paymentError.message);
+        return;
+      }
+
+      const articles = cartItems.map(item => ({
+        title: item.title,
+        price: parseFloat(item.price || '0'),
+        taille: item.taille,
+        couleur: item.couleur,
+        quantite: item.quantite || 1,
+        site: item.site,
+        url: item.url,
+        image: item.image,
+      }));
+
+      const { error } = await supabase.from('commandes').insert([
+        {
+          user_id: user.id,
+          articles,
+          total_articles: totalArticles,
+          total_client: totalClient,
+          statut: 'en_attente',
+        },
+      ]);
+
+      if (error) {
+        console.error("Erreur lors de l'enregistrement de la commande :", error);
+        Alert.alert("Erreur", "Commande payée mais non enregistrée.");
+        return;
+      }
+
+      await supabase.from('cart_items').delete().eq('user_id', user.id);
+      fetchCart();
+
+      const images = articles.map(a => a.image).filter(Boolean);
+      router.push({
+        pathname: '/confirmation',
+        params: { images: JSON.stringify(images) },
+      });
+
+    } catch (err) {
+      console.error("Erreur générale :", err);
+      Alert.alert("Erreur", "Une erreur est survenue pendant le paiement.");
     }
-
-    await supabase.from('cart_items').delete().eq('user_id', user.id);
-    fetchCart();
-
-    const images = articles.map(a => a.image).filter(Boolean);
-    router.push({
-      pathname: '/confirmation',
-      params: {
-        images: JSON.stringify(images),
-      },
-    });
   };
 
   const toggleTitle = (id: string) => {
@@ -135,24 +174,14 @@ export default function Panier() {
   const renderItem = ({ item }: { item: CartItem }) => (
     <TouchableOpacity
       onPress={() =>
-        router.push({
-          pathname: getWebviewPath(item.site),
-          params: { url: item.url },
-        })
+        router.push({ pathname: getWebviewPath(item.site), params: { url: item.url } })
       }
       style={styles.card}
     >
-      <Image
-        source={{ uri: item.image || 'https://via.placeholder.com/100' }}
-        style={styles.image}
-        resizeMode="cover"
-      />
+      <Image source={{ uri: item.image || 'https://via.placeholder.com/100' }} style={styles.image} />
       <View style={styles.info}>
         <TouchableOpacity onPress={() => toggleTitle(item.id)}>
-          <Text
-            style={styles.title}
-            numberOfLines={expandedId === item.id ? undefined : 1}
-          >
+          <Text style={styles.title} numberOfLines={expandedId === item.id ? undefined : 1}>
             {item.title || 'Produit sans titre'}
           </Text>
         </TouchableOpacity>
@@ -162,7 +191,6 @@ export default function Panier() {
         <Text style={styles.detail}>Quantité : {item.quantite || 1}</Text>
         <Text numberOfLines={1} style={styles.link}>{item.site}</Text>
       </View>
-
       <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
         <Ionicons name="trash-outline" size={22} color="#fff" />
       </TouchableOpacity>
@@ -185,9 +213,7 @@ export default function Panier() {
         data={cartItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListEmptyComponent={
-          <Text style={styles.empty}>Votre panier est vide.</Text>
-        }
+        ListEmptyComponent={<Text style={styles.empty}>Votre panier est vide.</Text>}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
 
@@ -227,18 +253,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  clearAllText: {
-    color: '#fff',
-    fontSize: 14,
-    marginLeft: 6,
-    fontWeight: 'bold',
-  },
-  empty: {
-    textAlign: 'center',
-    marginTop: 50,
-    color: '#888',
-    fontSize: 16,
-  },
+  clearAllText: { color: '#fff', fontSize: 14, marginLeft: 6, fontWeight: 'bold' },
+  empty: { textAlign: 'center', marginTop: 50, color: '#888', fontSize: 16 },
   card: {
     flexDirection: 'row',
     backgroundColor: '#f9f9f9',
@@ -252,34 +268,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  image: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#ddd',
-    borderRadius: 8,
-  },
-  info: {
-    flex: 1,
-    paddingHorizontal: 10,
-  },
-  title: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  price: {
-    color: '#007bff',
-    marginBottom: 4,
-  },
-  detail: {
-    fontSize: 13,
-    color: '#444',
-    marginBottom: 2,
-  },
-  link: {
-    fontSize: 13,
-    color: '#777',
-  },
+  image: { width: 80, height: 80, backgroundColor: '#ddd', borderRadius: 8 },
+  info: { flex: 1, paddingHorizontal: 10 },
+  title: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
+  price: { color: '#007bff', marginBottom: 4 },
+  detail: { fontSize: 13, color: '#444', marginBottom: 2 },
+  link: { fontSize: 13, color: '#777' },
   deleteBtn: {
     backgroundColor: '#ff4d4d',
     padding: 8,
@@ -291,20 +285,12 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
     paddingTop: 12,
   },
-  totalText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
+  totalText: { fontSize: 18, fontWeight: 'bold', textAlign: 'right' },
   commandButton: {
     backgroundColor: '#28a745',
     padding: 14,
     borderRadius: 8,
     marginTop: 10,
   },
-  commandButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
+  commandButtonText: { color: '#fff', textAlign: 'center', fontWeight: 'bold' },
 });
